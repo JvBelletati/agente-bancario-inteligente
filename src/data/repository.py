@@ -9,6 +9,8 @@ _SOLIC_COLS = [
     "novo_limite_solicitado", "status_pedido",
 ]
 
+_CLIENTES_COLS = ["cpf", "nome", "data_nascimento", "limite_atual", "score"]
+
 
 def normalizar_cpf(cpf: str) -> str:
     return "".join(ch for ch in str(cpf) if ch.isdigit())
@@ -60,21 +62,28 @@ def atualizar_score(cpf: str, novo_score: int) -> None:
         if normalizar_cpf(row["cpf"]) == alvo:
             row["score"] = str(int(novo_score))
     with open(CLIENTES_CSV, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["cpf", "nome", "data_nascimento", "limite_atual", "score"])
+        w = csv.DictWriter(f, fieldnames=_CLIENTES_COLS)
         w.writeheader()
         w.writerows(rows)
 
 
 def carregar_tabela_score() -> list[dict]:
-    with open(SCORE_LIMITE_CSV, newline="", encoding="utf-8") as f:
-        return [
-            {
-                "score_min": int(r["score_min"]),
-                "score_max": int(r["score_max"]),
-                "limite_maximo": float(r["limite_maximo"]),
-            }
-            for r in csv.DictReader(f)
-        ]
+    try:
+        with open(SCORE_LIMITE_CSV, newline="", encoding="utf-8") as f:
+            return [
+                {
+                    "score_min": int(r["score_min"]),
+                    "score_max": int(r["score_max"]),
+                    "limite_maximo": float(r["limite_maximo"]),
+                }
+                for r in csv.DictReader(f)
+            ]
+    except FileNotFoundError:
+        logger.error("score_limite.csv não encontrado em %s", SCORE_LIMITE_CSV)
+        return []
+    except OSError as e:
+        logger.exception("Erro ao ler score_limite.csv: %s", e)
+        return []
 
 
 def append_solicitacao(cpf: str, limite_atual: float, novo_limite: float,
@@ -100,7 +109,7 @@ def atualizar_status_solicitacao(cpf: str, data_hora: str, status: str) -> None:
         rows = list(csv.DictReader(f))
     alvo = normalizar_cpf(cpf)
     for row in rows:
-        if row["cpf_cliente"] == alvo and row["data_hora_solicitacao"] == data_hora:
+        if normalizar_cpf(row["cpf_cliente"]) == alvo and row["data_hora_solicitacao"] == data_hora:
             row["status_pedido"] = status
     with open(SOLICITACOES_CSV, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=_SOLIC_COLS)

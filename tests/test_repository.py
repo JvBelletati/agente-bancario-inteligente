@@ -62,3 +62,8 @@ def test_append_e_atualizar_status_solicitacao(fake_data):
 def test_buscar_cliente_arquivo_ausente(tmp_path, monkeypatch):
     monkeypatch.setattr(repo, "CLIENTES_CSV", tmp_path / "nao_existe.csv")
     assert repo.buscar_cliente("12345678901", "1990-05-14") is None
+
+
+def test_carregar_tabela_score_arquivo_ausente(tmp_path, monkeypatch):
+    monkeypatch.setattr(repo, "SCORE_LIMITE_CSV", tmp_path / "nao_existe.csv")
+    assert repo.carregar_tabela_score() == []
