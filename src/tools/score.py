@@ -1,5 +1,6 @@
 import unicodedata
 from src.config import PESO_RENDA, PESO_EMPREGO, PESO_DEPENDENTES, PESO_DIVIDAS
+from src.data.repository import atualizar_score
 
 
 def _sem_acento(txt: str) -> str:
@@ -50,3 +51,18 @@ def calcular_score(renda: float, tipo_emprego: str, despesas: float,
         + PESO_DIVIDAS[dividas]
     )
     return max(0, min(1000, round(score)))
+
+
+def atualizar_score_cliente(cpf: str, renda: float, tipo_emprego: str,
+                            despesas: float, num_dependentes: int,
+                            tem_dividas: str) -> dict:
+    """Recalcula o score a partir dos dados da entrevista e persiste na base."""
+    try:
+        novo = calcular_score(renda, tipo_emprego, despesas, num_dependentes, tem_dividas)
+    except ValueError as e:
+        return {"novo_score": None, "mensagem": f"Dados inválidos: {e}"}
+    try:
+        atualizar_score(cpf, novo)
+    except RuntimeError:
+        return {"novo_score": None, "mensagem": "Não consegui atualizar seu score agora."}
+    return {"novo_score": novo, "mensagem": f"Seu novo score é {novo}."}
