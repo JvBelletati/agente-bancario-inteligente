@@ -43,7 +43,7 @@ def run_react_turn(state, system_prompt: str, funcs: list, max_iters: int = 6):
                     logger.exception("Erro na tool %s: %s", call["name"], e)
                     out = {"mensagem": "Tive um problema ao executar essa ação."}
             resultados.append({"name": call["name"], "args": call["args"], "out": out})
-            tm = ToolMessage(content=str(out.get("mensagem", out)), tool_call_id=call["id"])
+            tm = ToolMessage(content=str(out.get("mensagem") or out), tool_call_id=call["id"])
             conversa.append(tm)
             novas.append(tm)
     return novas, resultados
