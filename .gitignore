@@ -1,8 +1,15 @@
 __pycache__/
 *.pyc
 .env
-logs/
+logs/*
+!logs/.gitkeep
 .venv/
 venv/
 .pytest_cache/
 data/solicitacoes_aumento_limite.csv
+
+# Local tooling / editor settings
+.claude/
+
+# Challenge brief PDF (not part of the solution)
+*.pdf
