@@ -13,7 +13,11 @@ SCORE_LIMITE_CSV = DATA_DIR / "score_limite.csv"
 SOLICITACOES_CSV = DATA_DIR / "solicitacoes_aumento_limite.csv"
 LOG_FILE = LOG_DIR / "app.log"
 
-LLM_MODEL = "gemini-2.0-flash"
+# Modelo configurável por env: troque em .env sem mexer no código
+# (ex.: GEMINI_MODEL=gemini-2.5-flash) caso o free tier de um modelo esteja indisponível.
+LLM_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+# Falha rápido em erros como 429 (cota) em vez de ficar ~35s tentando de novo.
+LLM_MAX_RETRIES = int(os.getenv("GEMINI_MAX_RETRIES", "2"))
 MAX_TENTATIVAS_AUTH = 3
 
 PESO_RENDA = 30
@@ -30,4 +34,9 @@ def get_llm(temperature: float = 0.0):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY não configurada. Copie .env.example para .env.")
-    return ChatGoogleGenerativeAI(model=LLM_MODEL, temperature=temperature, google_api_key=api_key)
+    return ChatGoogleGenerativeAI(
+        model=LLM_MODEL,
+        temperature=temperature,
+        google_api_key=api_key,
+        max_retries=LLM_MAX_RETRIES,
+    )
