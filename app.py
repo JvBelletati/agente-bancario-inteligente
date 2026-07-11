@@ -45,7 +45,7 @@ else:
                 {"messages": [HumanMessage(content=entrada)]}, cfg
             )
         except Exception as e:
-            logging.exception("Erro na execução do grafo: %s", e)
+            logging.exception("Erro na execução do grafo")
             resposta = "Desculpe, tive uma instabilidade. Pode repetir, por favor?"
             resultado = None
         if resultado is not None:

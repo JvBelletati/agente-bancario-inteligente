@@ -108,9 +108,13 @@ def atualizar_status_solicitacao(cpf: str, data_hora: str, status: str) -> None:
     with open(SOLICITACOES_CSV, newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     alvo = normalizar_cpf(cpf)
+    encontrou = False
     for row in rows:
         if normalizar_cpf(row["cpf_cliente"]) == alvo and row["data_hora_solicitacao"] == data_hora:
             row["status_pedido"] = status
+            encontrou = True
+    if not encontrou:
+        logger.warning("Nenhuma solicitação encontrada para cpf=%s data_hora=%s", alvo, data_hora)
     with open(SOLICITACOES_CSV, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=_SOLIC_COLS)
         w.writeheader()

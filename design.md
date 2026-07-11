@@ -86,14 +86,14 @@ class BankState(TypedDict):
 | `gate_auth` | função pura | — | `triagem` (não auth) · `router` (auth) |
 | `triagem` | agente ReAct | `autenticar_cliente`, `encerrar` | `router` (ok) · `END` (3 falhas/encerrar) · self |
 | `router` | LLM classificador leve | — | `credito` · `cambio` (por intenção) |
-| `credito` | agente ReAct | `consultar_limite`, `registrar_solicitacao_aumento`, `avaliar_score_limite`, `handoff_entrevista`, `encerrar` | `entrevista` · `router` · `END` |
-| `entrevista` | agente ReAct | `calcular_score`, `atualizar_score_cliente`, `handoff_credito` | `credito` |
+| `credito` | agente ReAct | `consultar_limite`, `registrar_solicitacao_aumento`, `avaliar_score_limite`, `iniciar_entrevista_credito`, `encerrar` | `entrevista` · `router` · `END` |
+| `entrevista` | agente ReAct | `atualizar_score_cliente` (usa `calcular_score` internamente, não é tool exposta ao LLM), `retornar_para_credito`, `encerrar` | `credito` |
 | `cambio` | agente ReAct | `consultar_cotacao`, `encerrar` | `router` · `END` |
 
 ### 3.4 Handoff (via `Command`)
 
 ```python
-def handoff_entrevista(state) -> Command:
+def iniciar_entrevista_credito(state) -> Command:
     return Command(goto="entrevista", update={"active_agent": "entrevista"})
 ```
 
@@ -236,9 +236,9 @@ soluções · Escolhas técnicas e justificativas · Tutorial de execução e te
 | Consulta de limite | tool `consultar_limite` |
 | Solicitação de aumento → `solicitacoes_aumento_limite.csv` | tool `registrar_solicitacao_aumento` (2 fases) |
 | Checagem via `score_limite.csv` → aprovado/rejeitado | tool `avaliar_score_limite` |
-| Rejeitado → oferece Entrevista | lógica no nó `credito` + `handoff_entrevista` |
+| Rejeitado → oferece Entrevista | lógica no nó `credito` + `iniciar_entrevista_credito` |
 | Entrevista coleta 5 dados → recalcula score | nó `entrevista` + `calcular_score` |
-| Atualiza score em `clientes.csv` → volta ao Crédito | `atualizar_score_cliente` + `handoff_credito` |
+| Atualiza score em `clientes.csv` → volta ao Crédito | `atualizar_score_cliente` + `retornar_para_credito` |
 | Câmbio via API externa | tool `consultar_cotacao` |
 | Encerramento a qualquer momento | tool `encerrar` + checkpoint em cada nó |
 | Handoff implícito / persona única | prompts compartilhados + sem msg de transição |
