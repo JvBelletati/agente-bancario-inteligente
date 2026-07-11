@@ -12,6 +12,7 @@ from src.tools.common import iniciar_entrevista_credito, outro_assunto, encerrar
 
 def credito_node(state: BankState) -> Command[Literal["entrevista", "router"]]:
     cpf = state.get("cpf")
+    _ctx = {"data_hora": (state.get("ultima_solicitacao") or {}).get("data_hora")}
 
     def _consultar_limite() -> dict:
         """Consulta o limite de crédito atual do cliente autenticado."""
@@ -19,11 +20,13 @@ def credito_node(state: BankState) -> Command[Literal["entrevista", "router"]]:
 
     def _registrar_solicitacao_aumento(novo_limite: float) -> dict:
         """Registra um pedido de aumento de limite (status pendente)."""
-        return registrar_solicitacao_aumento(cpf, novo_limite)
+        out = registrar_solicitacao_aumento(cpf, novo_limite)
+        _ctx["data_hora"] = out["data_hora"]
+        return out
 
-    def _avaliar_score_limite(novo_limite: float, data_hora: str) -> dict:
+    def _avaliar_score_limite(novo_limite: float) -> dict:
         """Avalia o pedido de aumento contra o score do cliente."""
-        return avaliar_score_limite(cpf, novo_limite, data_hora)
+        return avaliar_score_limite(cpf, novo_limite, _ctx["data_hora"])
 
     funcs = [_consultar_limite, _registrar_solicitacao_aumento, _avaliar_score_limite,
              iniciar_entrevista_credito, outro_assunto, encerrar]

@@ -6,7 +6,7 @@ from src.graph.state import BankState
 from src.graph.agent_runtime import run_react_turn
 from src.prompts.personas import PROMPT_ENTREVISTA
 from src.tools.score import atualizar_score_cliente
-from src.tools.common import retornar_para_credito
+from src.tools.common import retornar_para_credito, encerrar
 
 
 def entrevista_node(state: BankState) -> Command[Literal["credito"]]:
@@ -18,12 +18,14 @@ def entrevista_node(state: BankState) -> Command[Literal["credito"]]:
         return atualizar_score_cliente(cpf, renda, tipo_emprego, despesas,
                                        num_dependentes, tem_dividas)
 
-    funcs = [_atualizar_score_cliente, retornar_para_credito]
+    funcs = [_atualizar_score_cliente, retornar_para_credito, encerrar]
     novas, resultados = run_react_turn(state, PROMPT_ENTREVISTA, funcs)
     update = {"messages": novas}
     novo_score = None
 
     for r in resultados:
+        if r["name"] == "encerrar":
+            return Command(goto=END, update={**update, "encerrar": True})
         if r["name"] == "_atualizar_score_cliente" and r["out"].get("novo_score") is not None:
             novo_score = r["out"]["novo_score"]
             # atualiza cliente em memória p/ o Crédito reavaliar com o score novo
