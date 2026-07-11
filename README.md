@@ -1,5 +1,11 @@
 # Agente Bancário Inteligente — Banco Ágil
 
+[![CI/CD](https://github.com/JvBelletati/agente-bancario-inteligente/actions/workflows/ci.yml/badge.svg)](https://github.com/JvBelletati/agente-bancario-inteligente/actions/workflows/ci.yml)
+[![Drift Check](https://github.com/JvBelletati/agente-bancario-inteligente/actions/workflows/drift-check.yml/badge.svg)](https://github.com/JvBelletati/agente-bancario-inteligente/actions/workflows/drift-check.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
+![Status](https://img.shields.io/badge/status-portfolio-orange?style=flat-square)
+
 Assistente virtual de atendimento bancário construído com **LangGraph** + **Gemini**, que para
 o cliente aparenta ser um único atendente, mas internamente orquestra **4 agentes
 especializados** (Triagem, Crédito, Entrevista de Crédito e Câmbio) com handoffs implícitos.

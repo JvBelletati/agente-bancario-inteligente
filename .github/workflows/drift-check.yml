@@ -1,0 +1,29 @@
+name: Drift Check
+
+# Verifica que os CSVs base versionados (data/clientes.csv, data/score_limite.csv)
+# continuam idênticos ao que o gerador scripts/seed_data.py produz — ou seja, que
+# os dados semeados não "driftaram" da sua fonte de verdade.
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: "0 6 * * 1"   # semanalmente, segunda 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Regenerate seed data
+        run: python scripts/seed_data.py
+
+      - name: Verify committed CSVs match the generator (no drift)
+        run: git diff --exit-code --ignore-cr-at-eol data/clientes.csv data/score_limite.csv
