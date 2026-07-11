@@ -28,12 +28,13 @@ crédito.
 UI Streamlit (chat único)
         │
 Grafo LangGraph (estado compartilhado + roteamento)
-   gate_auth ──não auth──► TRIAGEM
-        │ auth
-        ▼
-     router ──► CRÉDITO ──handoff──► ENTREVISTA ──volta──► CRÉDITO
-        └─────► CÂMBIO
-   (tool "encerrar" disponível em qualquer nó → END)
+   gate_auth
+     ├─ não autenticado ──────────────────────────────► TRIAGEM
+     ├─ autenticado + especialista ativo (sticky) ────► CRÉDITO / ENTREVISTA / CÂMBIO (direto)
+     └─ autenticado + nenhum especialista ativo ──────► router ──► CRÉDITO ──handoff──► ENTREVISTA
+                                                               └──► CÂMBIO      (retorna a CRÉDITO)
+   (CRÉDITO e CÂMBIO voltam ao router via a tool "outro_assunto"; "encerrar" → END em
+    qualquer nó conversacional; gate_auth reavalia esses ramos a cada turno de mensagem)
         │
 Tools / lógica determinística  →  camada de dados (CSV)
 ```
@@ -42,12 +43,19 @@ Tools / lógica determinística  →  camada de dados (CSV)
 
 | Nó | Tipo | Tools que enxerga | Saídas possíveis |
 |---|---|---|---|
-| `gate_auth` | função pura (não-LLM) | — | `triagem` (se não autenticado) · `router` (se autenticado) |
-| `triagem` | agente ReAct | `autenticar_cliente`, `encerrar` | `router` (autenticou) · `END` (3ª falha ou encerramento) · permanece em si mesmo |
+| `gate_auth` | função pura (não-LLM) | — | `END` (se `encerrar`) · `triagem` (não autenticado) · `credito`/`entrevista`/`cambio` direto — bypass do router — quando autenticado e há um especialista "sticky" ativo (`active_agent`) · `router` quando autenticado e nenhum especialista está ativo |
+| `triagem` | agente ReAct | `autenticar_cliente`, `encerrar` | `END` (autenticou; `router` entra no turno seguinte via `gate_auth`) · `END` (3ª falha ou encerramento) · permanece em si mesmo |
 | `router` | classificador leve por LLM | — | `credito` · `cambio`, conforme a intenção do cliente |
-| `credito` | agente ReAct | `consultar_limite`, `registrar_solicitacao_aumento`, `avaliar_score_limite`, `handoff_entrevista`, `encerrar` | `entrevista` (handoff) · `router` · `END` |
-| `entrevista` | agente ReAct | `calcular_score`, `atualizar_score_cliente`, `handoff_credito` | `credito` (sempre volta) |
-| `cambio` | agente ReAct | `consultar_cotacao`, `encerrar` | `router` · `END` |
+| `credito` | agente ReAct | `_consultar_limite`, `_registrar_solicitacao_aumento`, `_avaliar_score_limite`, `iniciar_entrevista_credito`, `outro_assunto`, `encerrar` | `entrevista` (via `iniciar_entrevista_credito`) · `router` (via `outro_assunto`) · `END` |
+| `entrevista` | agente ReAct | `_atualizar_score_cliente`, `retornar_para_credito` | `credito` (via `retornar_para_credito`, sempre volta) |
+| `cambio` | agente ReAct | `consultar_cotacao`, `outro_assunto`, `encerrar` | `router` (via `outro_assunto`) · `END` |
+
+As tools com nome iniciado por `_` (`_consultar_limite`, `_registrar_solicitacao_aumento`,
+`_avaliar_score_limite`, `_atualizar_score_cliente`) são *closures* definidas dentro do nó,
+fechadas sobre o `cpf` já autenticado no estado — assim o LLM nunca informa de qual cliente
+quer os dados, apenas decide *que* ação tomar, e não há como consultar/alterar dados de
+outro CPF. `calcular_score` (`src/tools/score.py`) é uma função auxiliar interna chamada por
+`atualizar_score_cliente` — não é exposta como tool ao LLM.
 
 Cada agente ReAct só tem acesso ao subconjunto de tools listado acima — por exemplo, o agente de
 Câmbio nem sequer possui a tool de crédito na sua lista de *tools*, então "nenhum agente atua
@@ -55,19 +63,28 @@ fora do escopo" é garantido **por construção**, não por instrução de promp
 
 ### Mecanismos estruturais de confiabilidade
 
-1. **Gate determinístico de autenticação** — antes de `autenticado == True` no estado, o grafo
-   força a passagem pela Triagem. Isso é uma aresta de grafo (`gate_auth`, função Python simples
-   com um `if`), não uma instrução de prompt — logo, é imune a tentativas de prompt injection que
-   peçam para "pular a autenticação".
+1. **Gate determinístico de roteamento (`gate_auth`)** — toda mensagem passa antes por uma
+   aresta de grafo em Python puro (sem LLM), que decide o próximo nó nesta ordem: (1) se
+   `encerrar` estiver setado no estado, vai direto para `END`; (2) se o cliente ainda não está
+   autenticado, força a passagem pela Triagem; (3) se já está autenticado e existe um
+   especialista "sticky" ativo (`active_agent` igual a `credito`, `entrevista` ou `cambio`), vai
+   **direto** para esse nó — sem passar pelo `router`; (4) só quando autenticado e sem nenhum
+   especialista ativo é que o `router` (classificador por LLM) entra em ação. Ou seja, o
+   `router_node` roda apenas quando não há especialista em curso, não em todo turno autenticado.
+   Como é código Python com `if`s, não uma instrução de prompt, esse roteamento é imune a
+   tentativas de prompt injection que peçam para "pular a autenticação" ou "trocar de
+   especialista".
 2. **Escopo restrito por construção** — como descrito acima, cada nó ReAct é instanciado com sua
    própria lista de tools; o LLM literalmente não tem como chamar uma tool que não lhe foi
-   passada.
+   passada. As tools de crédito/entrevista, além disso, são fechadas (*closures*) sobre o `cpf`
+   já autenticado no estado, então nem o LLM decide de qual cliente são os dados.
 3. **Handoff implícito via `Command`** — a troca de especialista é feita retornando um
    `Command(goto="entrevista", update={"active_agent": "entrevista"})` a partir de uma tool de
-   handoff (ex.: `handoff_entrevista`, `handoff_credito`). Não há mensagem de transição, e
-   `active_agent` é "sticky": o especialista ativo continua respondendo os próximos turnos até
-   ele mesmo devolver o controle ou fazer handoff — a Entrevista, por exemplo, não é interrompida
-   pelo router no meio da coleta de dados.
+   controle (ex.: `iniciar_entrevista_credito`, `retornar_para_credito`, `outro_assunto`). Não há
+   mensagem de transição, e `active_agent` é "sticky": o especialista ativo continua respondendo
+   os próximos turnos (via o bypass do `gate_auth` descrito no item 1) até ele mesmo devolver o
+   controle ou fazer handoff — a Entrevista, por exemplo, não é interrompida pelo router no meio
+   da coleta de dados.
 
 ### Estado compartilhado (`BankState`)
 
