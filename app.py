@@ -5,6 +5,23 @@ from langchain_core.messages import HumanMessage, AIMessage
 from src.config import LOG_FILE, LOG_DIR
 from src.graph.builder import build_graph, estado_inicial
 
+
+def _texto(content) -> str:
+    """Extrai o texto de um AIMessage.content, que pode ser str (Gemini) ou uma lista
+    de blocos (Claude: [{'type':'text','text':...}, {'type':'tool_use',...}])."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        partes = []
+        for bloco in content:
+            if isinstance(bloco, dict) and bloco.get("type") == "text":
+                partes.append(bloco.get("text", ""))
+            elif isinstance(bloco, str):
+                partes.append(bloco)
+        return "".join(partes)
+    return str(content)
+
+
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
@@ -49,8 +66,9 @@ else:
             resposta = "Desculpe, tive uma instabilidade. Pode repetir, por favor?"
             resultado = None
         if resultado is not None:
-            ultimas = [m for m in resultado["messages"] if isinstance(m, AIMessage) and m.content]
-            resposta = ultimas[-1].content if ultimas else "..."
+            textos = [_texto(m.content).strip() for m in resultado["messages"] if isinstance(m, AIMessage)]
+            textos = [t for t in textos if t]
+            resposta = textos[-1] if textos else "..."
             st.session_state.encerrado = bool(resultado.get("encerrar"))
         st.session_state.history.append(("assistant", resposta))
         with st.chat_message("assistant"):
