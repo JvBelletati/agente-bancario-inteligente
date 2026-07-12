@@ -252,6 +252,8 @@ Log central em `logs/app.log` (arquivo) + console, configurado em `app.py` via m
    ```bash
    python scripts/seed_data.py
    ```
+   > `data/clientes.csv` é estado de runtime (a Entrevista de Crédito atualiza o score) e
+   > **não** é versionado — este passo o gera. Só a tabela `data/score_limite.csv` fica no repositório.
 5. Rodar a aplicação:
    ```bash
    streamlit run app.py

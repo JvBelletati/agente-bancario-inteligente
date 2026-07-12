@@ -6,6 +6,9 @@ logs/*
 .venv/
 venv/
 .pytest_cache/
+# Estado de runtime gerado por scripts/seed_data.py e mutado pelo app
+# (a Entrevista de Crédito atualiza o score): não versionar.
+data/clientes.csv
 data/solicitacoes_aumento_limite.csv
 
 # Local tooling / editor settings
