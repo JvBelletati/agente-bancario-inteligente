@@ -22,6 +22,12 @@ def _texto(content) -> str:
     return str(content)
 
 
+def _md(texto: str) -> str:
+    """Escapa '$' para o Streamlit não interpretar 'R$ 1,00 ... R$ 2,00' como
+    fórmula LaTeX (KaTeX), o que renderiza os valores em modo matemático."""
+    return texto.replace("$", "\\$")
+
+
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(
     level=logging.INFO,
@@ -47,7 +53,7 @@ cfg = {"configurable": {"thread_id": st.session_state.thread_id}}
 
 for autor, texto in st.session_state.history:
     with st.chat_message(autor):
-        st.markdown(texto)
+        st.markdown(_md(texto))
 
 if st.session_state.encerrado:
     st.info("Atendimento encerrado. Recarregue a página para iniciar um novo.")
@@ -56,7 +62,7 @@ else:
     if entrada:
         st.session_state.history.append(("user", entrada))
         with st.chat_message("user"):
-            st.markdown(entrada)
+            st.markdown(_md(entrada))
         try:
             resultado = st.session_state.graph.invoke(
                 {"messages": [HumanMessage(content=entrada)]}, cfg
@@ -72,6 +78,6 @@ else:
             st.session_state.encerrado = bool(resultado.get("encerrar"))
         st.session_state.history.append(("assistant", resposta))
         with st.chat_message("assistant"):
-            st.markdown(resposta)
+            st.markdown(_md(resposta))
         if st.session_state.encerrado:
             st.rerun()
