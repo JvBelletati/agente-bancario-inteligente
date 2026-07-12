@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 ![Status](https://img.shields.io/badge/status-portfolio-orange?style=flat-square)
 
-Assistente virtual de atendimento bancário construído com **LangGraph** + **Gemini**, que para
+Assistente virtual de atendimento bancário construído com **LangGraph** + **Claude** (ou Gemini), que para
 o cliente aparenta ser um único atendente, mas internamente orquestra **4 agentes
 especializados** (Triagem, Crédito, Entrevista de Crédito e Câmbio) com handoffs implícitos.
 
@@ -220,7 +220,7 @@ Log central em `logs/app.log` (arquivo) + console, configurado em `app.py` via m
 | Escolha | Justificativa |
 |---|---|
 | **LangGraph** (`StateGraph` + `MemorySaver`) | Estado compartilhado explícito e handoffs entre agentes como transições de grafo (`Command`), em vez de um único prompt gigante tentando simular múltiplos papéis — mais previsível e testável. |
-| **Gemini `gemini-2.0-flash`** via `langchain-google-genai` | Modelo rápido e de baixo custo, suficiente para roteamento de intenção e conversas ReAct de atendimento; integração direta com LangGraph via LangChain. |
+| **LLM multi-provedor** — Claude (`langchain-anthropic`, padrão) ou Gemini (`langchain-google-genai`) | A camada de LLM é agnóstica de provedor (abstração de `ChatModel` do LangChain), então troca-se o provedor/modelo só por env (`LLM_PROVIDER`, `ANTHROPIC_MODEL`, `GEMINI_MODEL`) sem tocar em `run_react_turn`, router ou nós. Claude por padrão pelo tool-calling confiável; um modelo mais leve (`claude-sonnet-5`/`claude-haiku-4-5`) costuma ser melhor custo/latência num chatbot multi-agente. |
 | **AwesomeAPI** para câmbio | API pública sem necessidade de chave/cadastro, reduzindo fricção de setup para quem for rodar o projeto. |
 | **Streamlit** para a UI | Chat funcional com pouquíssimo código, permitindo focar o esforço na lógica multi-agente em vez de front-end. |
 | **CSV + camada única de repositório (`pandas`/`csv`)** | Atende ao requisito do desafio (dados em CSV) mantendo toda a I/O centralizada em `src/data/repository.py` — isso torna as *tools* testáveis com arquivos de teste isolados e centraliza o tratamento de erros (arquivo ausente/corrompido) em um único lugar. |
@@ -245,7 +245,9 @@ Log central em `logs/app.log` (arquivo) + console, configurado em `app.py` via m
    ```bash
    cp .env.example .env
    ```
-   e preencher `GEMINI_API_KEY` no `.env` com uma chave válida da API do Gemini.
+   e preencher a chave do provedor no `.env`:
+   - **Claude (padrão):** `ANTHROPIC_API_KEY`. Opcional: `ANTHROPIC_MODEL` (ex.: `claude-sonnet-5` ou `claude-haiku-4-5` para menor custo/latência).
+   - **Gemini:** defina `LLM_PROVIDER=google` e `GEMINI_API_KEY`.
 4. Gerar os dados de exemplo (clientes e tabela de score→limite):
    ```bash
    python scripts/seed_data.py
