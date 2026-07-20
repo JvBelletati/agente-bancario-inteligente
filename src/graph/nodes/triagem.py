@@ -1,3 +1,4 @@
+import logging
 from langgraph.graph import END
 from langgraph.types import Command
 from src.config import MAX_TENTATIVAS_AUTH
@@ -6,18 +7,24 @@ from src.graph.agent_runtime import run_react_turn
 from src.prompts.personas import PROMPT_TRIAGEM
 from src.tools.auth import autenticar_cliente
 from src.tools.common import encerrar
+from src.data.repository import mascarar_cpf
+
+logger = logging.getLogger(__name__)
 
 
 def triagem_node(state: BankState) -> Command:
+    logger.info("[FLUXO] → nó TRIAGEM (autenticação)")
     novas, resultados = run_react_turn(state, PROMPT_TRIAGEM, [autenticar_cliente, encerrar])
     update = {"messages": novas}
 
     for r in resultados:
         if r["name"] == "encerrar":
+            logger.info("[TRIAGEM] encerramento solicitado pelo cliente")
             return Command(goto=END, update={**update, "encerrar": True})
         if r["name"] == "autenticar_cliente":
             out = r["out"]
             if out.get("autenticado"):
+                logger.info("[TRIAGEM] autenticação OK: cpf=%s", mascarar_cpf(out["cliente"]["cpf"]))
                 update.update({
                     "autenticado": True,
                     "cpf": out["cliente"]["cpf"],
@@ -28,7 +35,9 @@ def triagem_node(state: BankState) -> Command:
             # falha de autenticação
             tentativas = state.get("tentativas_auth", 0) + 1
             update["tentativas_auth"] = tentativas
+            logger.info("[TRIAGEM] falha de autenticação (tentativa %d/%d)", tentativas, MAX_TENTATIVAS_AUTH)
             if tentativas >= MAX_TENTATIVAS_AUTH:
+                logger.info("[TRIAGEM] limite de tentativas atingido → encerrando atendimento")
                 from langchain_core.messages import AIMessage
                 despedida = AIMessage(content=(
                     "Infelizmente não consegui confirmar seus dados após algumas tentativas. "

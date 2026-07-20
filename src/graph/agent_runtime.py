@@ -33,8 +33,11 @@ def run_react_turn(state, system_prompt: str, funcs: list, max_iters: int = 6):
         if not getattr(ai, "tool_calls", None):
             return novas, resultados
         for call in ai.tool_calls:
+            # loga apenas o NOME da tool (nunca os args — podem conter CPF/data de nascimento)
+            logger.info("[TOOL] chamada: %s", call["name"])
             fn = by_name.get(call["name"])
             if fn is None:
+                logger.warning("[TOOL] %s indisponível neste agente", call["name"])
                 out = {"mensagem": f"Ação {call['name']} indisponível."}
             else:
                 try:

@@ -60,6 +60,7 @@ if st.session_state.encerrado:
 else:
     entrada = st.chat_input("Digite sua mensagem...")
     if entrada:
+        logging.info("[FLUXO] ─────────── novo turno do cliente ───────────")
         st.session_state.history.append(("user", entrada))
         with st.chat_message("user"):
             st.markdown(_md(entrada))
@@ -76,6 +77,8 @@ else:
             textos = [t for t in textos if t]
             resposta = textos[-1] if textos else "..."
             st.session_state.encerrado = bool(resultado.get("encerrar"))
+            if st.session_state.encerrado:
+                logging.info("[FLUXO] atendimento ENCERRADO")
         st.session_state.history.append(("assistant", resposta))
         with st.chat_message("assistant"):
             st.markdown(_md(resposta))

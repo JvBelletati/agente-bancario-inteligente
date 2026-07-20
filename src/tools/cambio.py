@@ -17,6 +17,7 @@ def consultar_cotacao(moeda: str = "USD", moeda_destino: str = "BRL") -> dict:
             return {"moeda": moeda, "valor": None,
                     "mensagem": f"Não encontrei a cotação de {moeda} agora."}
         valor = float(resp.json()[chave]["bid"])
+        logger.info("[CÂMBIO] cotação obtida | par=%s valor=R$ %.2f", par, valor)
         return {"moeda": moeda, "valor": valor,
                 "mensagem": f"A cotação atual de {moeda} é R$ {valor:.2f}."}
     except (httpx.HTTPError, KeyError, ValueError) as e:

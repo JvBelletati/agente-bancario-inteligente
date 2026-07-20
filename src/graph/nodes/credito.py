@@ -1,3 +1,4 @@
+import logging
 from typing import Literal
 from langgraph.graph import END
 from langgraph.types import Command
@@ -8,10 +9,14 @@ from src.tools.credito import (
     consultar_limite, registrar_solicitacao_aumento, avaliar_score_limite,
 )
 from src.tools.common import iniciar_entrevista_credito, outro_assunto, encerrar
+from src.data.repository import mascarar_cpf
+
+logger = logging.getLogger(__name__)
 
 
 def credito_node(state: BankState) -> Command[Literal["entrevista", "router"]]:
     cpf = state.get("cpf")
+    logger.info("[FLUXO] → nó CRÉDITO (cpf=%s)", mascarar_cpf(cpf))
     _ctx = {"data_hora": (state.get("ultima_solicitacao") or {}).get("data_hora")}
 
     def _consultar_limite() -> dict:
@@ -38,10 +43,13 @@ def credito_node(state: BankState) -> Command[Literal["entrevista", "router"]]:
         if r["name"] == "_registrar_solicitacao_aumento":
             update["ultima_solicitacao"] = out
         if r["name"] == "encerrar":
+            logger.info("[CRÉDITO] encerramento solicitado pelo cliente")
             return Command(goto=END, update={**update, "encerrar": True})
         if out.get("handoff") == "entrevista":
+            logger.info("[FLUXO] handoff: crédito → entrevista")
             return Command(goto="entrevista", update={**update, "active_agent": "entrevista"})
         if out.get("handoff") == "router":
+            logger.info("[FLUXO] handoff: crédito → router (outro assunto)")
             return Command(goto="router", update={**update, "active_agent": ""})
 
     return Command(goto=END, update=update)  # respondeu e aguarda o cliente (fica sticky via gate_auth)

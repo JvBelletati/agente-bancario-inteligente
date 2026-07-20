@@ -1,3 +1,4 @@
+import logging
 from typing import Literal
 from langgraph.graph import END
 from langgraph.types import Command
@@ -7,10 +8,14 @@ from src.graph.agent_runtime import run_react_turn
 from src.prompts.personas import PROMPT_ENTREVISTA
 from src.tools.score import atualizar_score_cliente
 from src.tools.common import retornar_para_credito, encerrar
+from src.data.repository import mascarar_cpf
+
+logger = logging.getLogger(__name__)
 
 
 def entrevista_node(state: BankState) -> Command[Literal["credito"]]:
     cpf = state.get("cpf")
+    logger.info("[FLUXO] → nó ENTREVISTA (cpf=%s)", mascarar_cpf(cpf))
 
     def _atualizar_score_cliente(renda: float, tipo_emprego: str, despesas: float,
                                  num_dependentes: int, tem_dividas: str) -> dict:
@@ -25,6 +30,7 @@ def entrevista_node(state: BankState) -> Command[Literal["credito"]]:
 
     for r in resultados:
         if r["name"] == "encerrar":
+            logger.info("[ENTREVISTA] encerramento solicitado pelo cliente")
             return Command(goto=END, update={**update, "encerrar": True})
         if r["name"] == "_atualizar_score_cliente" and r["out"].get("novo_score") is not None:
             novo_score = r["out"]["novo_score"]
@@ -33,6 +39,7 @@ def entrevista_node(state: BankState) -> Command[Literal["credito"]]:
             cliente["score"] = novo_score
             update["cliente"] = cliente
         if r["out"].get("handoff") == "credito":
+            logger.info("[FLUXO] handoff: entrevista → crédito (reanálise)")
             nota = AIMessage(content="Com seu score atualizado, vou reanalisar seu pedido de limite.")
             update["messages"] = novas + [nota]
             return Command(goto="credito", update={**update, "active_agent": "credito"})

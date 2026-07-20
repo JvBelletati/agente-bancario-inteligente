@@ -1,6 +1,9 @@
+import logging
 import unicodedata
 from src.config import PESO_RENDA, PESO_EMPREGO, PESO_DEPENDENTES, PESO_DIVIDAS
-from src.data.repository import atualizar_score
+from src.data.repository import atualizar_score, mascarar_cpf
+
+logger = logging.getLogger(__name__)
 
 
 def _sem_acento(txt: str) -> str:
@@ -64,5 +67,11 @@ def atualizar_score_cliente(cpf: str, renda: float, tipo_emprego: str,
     try:
         atualizar_score(cpf, novo)
     except RuntimeError:
+        logger.warning("[ENTREVISTA] falha ao persistir score | cpf=%s", mascarar_cpf(cpf))
         return {"novo_score": None, "mensagem": "Não consegui atualizar seu score agora."}
+    logger.info(
+        "[ENTREVISTA] score RECALCULADO e persistido | cpf=%s novo_score=%d "
+        "(renda=%s emprego=%s despesas=%s dependentes=%s dividas=%s)",
+        mascarar_cpf(cpf), novo, renda, tipo_emprego, despesas, num_dependentes, tem_dividas,
+    )
     return {"novo_score": novo, "mensagem": f"Seu novo score é {novo}."}

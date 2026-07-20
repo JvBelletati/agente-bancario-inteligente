@@ -16,6 +16,12 @@ def normalizar_cpf(cpf: str) -> str:
     return "".join(ch for ch in str(cpf) if ch.isdigit())
 
 
+def mascarar_cpf(cpf: str | None) -> str:
+    """Mascara o CPF para logs (LGPD): mantém só os 3 últimos dígitos."""
+    d = normalizar_cpf(cpf or "")
+    return ("*" * (len(d) - 3) + d[-3:]) if len(d) >= 3 else "***"
+
+
 def _ler_clientes() -> list[dict]:
     try:
         with open(CLIENTES_CSV, newline="", encoding="utf-8") as f:
